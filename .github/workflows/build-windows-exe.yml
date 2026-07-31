@@ -1,0 +1,55 @@
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "**/*.py"
+      - "requirements*.txt"
+      - "WordReviewTool.spec"
+      - ".github/workflows/build-windows-exe.yml"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-build.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements-build.txt
+
+      - name: Verify source and reports
+        run: |
+          python -m compileall -q main.py gui.py generate_mock.py word_review
+          python generate_mock.py --output-dir test-data
+          python main.py extract test-data/contract_tracked.docx --output test-output/tracked.html
+          python main.py compare test-data/contract_before.docx test-data/contract_after.docx --output test-output/compare.html
+
+      - name: Build executable
+        run: pyinstaller --noconfirm --clean WordReviewTool.spec
+
+      - name: Smoke test executable exists
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "dist/WordReviewTool.exe")) {
+            throw "WordReviewTool.exe was not generated"
+          }
+
+      - name: Upload Windows executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: WordReviewTool-Windows-x64
+          path: dist/WordReviewTool.exe
+          if-no-files-found: error

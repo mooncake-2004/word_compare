@@ -1,0 +1,17 @@
+# Python 快取與虛擬環境
+__pycache__/
+*.py[cod]
+.venv/
+.venv-build/
+
+# PyInstaller 產物
+build/
+dist/
+
+# 使用者生成的文件
+mock_data/*.docx
+output/*.html
+
+# 保留空目錄說明文件
+!mock_data/.gitkeep
+!output/.gitkeep
