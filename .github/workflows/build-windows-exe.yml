@@ -52,8 +52,16 @@ jobs:
           }
 
       - name: Upload Windows executable
-        uses: actions/upload-artifact@v4
+        id: upload-exe
+        uses: actions/upload-artifact@v5
         with:
           name: WordReviewTool-Windows-x64
           path: dist/WordReviewTool.exe
           if-no-files-found: error
+          retention-days: 30
+
+      - name: Add download link to summary
+        shell: pwsh
+        run: |
+          "## Windows EXE" >> $env:GITHUB_STEP_SUMMARY
+          "[Download WordReviewTool-Windows-x64](${{ steps.upload-exe.outputs.artifact-url }})" >> $env:GITHUB_STEP_SUMMARY

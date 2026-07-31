@@ -1,14 +1,16 @@
 # Word 修訂與批註分析工具
 
-這是一個完全離線的 Python 工具，用於提取 `.docx` 的 Track Changes／批註，或比較兩份乾淨 Word 文件。輸出為內嵌 CSS、JavaScript 和資料的單一互動式 HTML，不會上傳文件或呼叫外部服務。
+這是一個完全離線的 Python 工具，用於提取 `.docx` 的 Track Changes／批註，或比較兩份 DOCX 的目前版本。兩份文件都可以保留修訂與批註；比較時會接受各自既有修訂後再計算版本差異，不會把更早的修訂歷史重複列為差異。輸出為內嵌 CSS、JavaScript 和資料的單一互動式 HTML，不會上傳文件或呼叫外部服務。
 
 ## 功能
 
 - 直接使用 `lxml` 解析 `word/document.xml` 中的 `w:ins`、`w:del`、`w:author` 和 `w:date`。
 - 解析 `word/comments.xml` 及正文中的批註範圍，取得批註內容和被批註原文。
 - 產生修改前及接受修訂後的段落文字。
-- 使用 `difflib.SequenceMatcher` 比較兩份文件的段落和修改段落內的字元。
-- 互動式左右雙欄 HTML；點擊項目後顯示目標段落前後各 3 段。
+- 使用 `difflib.SequenceMatcher` 比較兩份文件接受各自既有修訂後的段落，並顯示相關修訂人。
+- 互動式左右雙欄 HTML；可像 Word「尋找」一樣使用上一個／下一個逐項跳轉。
+- 雙版本預覽以「修改前／修改後」左右並排，直接高亮字元級新增與刪除。
+- 可在附近 3 段上下文與整份文件模式之間切換，展開後仍定位目前變更。
 - 新增、刪除、批註和修改以不同顏色顯示，並可搜尋及篩選。
 
 ## Windows EXE（推薦給一般使用者）
@@ -76,7 +78,9 @@ python main.py extract mock_data/contract_tracked.docx \
   --output output/tracked_report.html
 ```
 
-## 模式二：比較兩份文件
+## 模式二：比較兩份目前版本
+
+兩份輸入都可以包含 Track Changes 和批註。工具只比較兩份文件接受既有修訂後的目前文字，不會把版本一或版本二內更早的刪除／插入逐條重新列出。
 
 ```bash README.md
 python main.py compare \

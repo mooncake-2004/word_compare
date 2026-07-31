@@ -51,13 +51,17 @@ class ParagraphDiff:
     """兩份文件之間的一項段落差異。"""
 
     diff_id: str
-    diff_type: Literal["insert", "delete", "modify"]
+    diff_type: Literal["equal", "insert", "delete", "modify"]
     old_text: str
     new_text: str
     old_index: int | None
     new_index: int | None
     context_index: int
     inline_changes: list[dict[str, str]] = field(default_factory=list)
+    old_authors: list[str] = field(default_factory=list)
+    new_authors: list[str] = field(default_factory=list)
+    old_dates: list[str] = field(default_factory=list)
+    new_dates: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -70,6 +74,7 @@ class AnalysisReport:
     revisions: list[RevisionInfo] = field(default_factory=list)
     comments: list[CommentInfo] = field(default_factory=list)
     differences: list[ParagraphDiff] = field(default_factory=list)
+    comparison_rows: list[ParagraphDiff] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:

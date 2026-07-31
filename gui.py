@@ -45,15 +45,16 @@ class WordReviewApp:
         mode_box = ttk.LabelFrame(outer, text="1. 選擇模式", padding=12)
         mode_box.pack(fill="x")
         ttk.Radiobutton(mode_box, text="單文件：提取修訂與批註", variable=self.mode, value="extract", command=self._switch_mode).pack(side="left", padx=(0, 24))
-        ttk.Radiobutton(mode_box, text="雙文件：比較兩個乾淨版本", variable=self.mode, value="compare", command=self._switch_mode).pack(side="left")
+        ttk.Radiobutton(mode_box, text="雙文件：比較兩份目前版本（可含修訂／批註）", variable=self.mode, value="compare", command=self._switch_mode).pack(side="left")
 
         self.input_box = ttk.LabelFrame(outer, text="2. 選擇文件", padding=12)
         self.input_box.pack(fill="x", pady=14)
         self.extract_frame = ttk.Frame(self.input_box)
         self.compare_frame = ttk.Frame(self.input_box)
         self._file_row(self.extract_frame, "帶修訂的 DOCX", self.tracked_path)
-        self._file_row(self.compare_frame, "舊版本 DOCX", self.old_path)
-        self._file_row(self.compare_frame, "新版本 DOCX", self.new_path)
+        self._file_row(self.compare_frame, "版本一 DOCX", self.old_path)
+        self._file_row(self.compare_frame, "版本二 DOCX", self.new_path)
+        ttk.Label(self.compare_frame, text="會接受兩份文件各自的既有修訂後再比較，只顯示版本一與版本二之間的差異。", foreground="#52606d").pack(anchor="w", pady=(6, 0))
 
         output_box = ttk.LabelFrame(outer, text="3. 輸出位置", padding=12)
         output_box.pack(fill="x")
@@ -108,7 +109,7 @@ class WordReviewApp:
             messagebox.showwarning("尚未選擇文件", "請選擇一份帶修訂或批註的 DOCX。")
             return
         if mode == "compare" and (not old_path or not new_path):
-            messagebox.showwarning("尚未選擇文件", "請同時選擇舊版本和新版本 DOCX。")
+            messagebox.showwarning("尚未選擇文件", "請同時選擇版本一和版本二 DOCX。")
             return
         self._run_in_background(
             lambda: self._analyze(mode, tracked_path, old_path, new_path, output_dir)

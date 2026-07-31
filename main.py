@@ -31,9 +31,9 @@ def build_parser() -> argparse.ArgumentParser:
     extract.add_argument("document", help="帶 Track Changes 的 DOCX")
     extract.add_argument("-o", "--output", default="output/tracked_report.html", help="輸出 HTML 路徑")
 
-    compare = subparsers.add_parser("compare", help="比較兩份乾淨 DOCX")
-    compare.add_argument("old_document", help="舊版本 DOCX")
-    compare.add_argument("new_document", help="新版本 DOCX")
+    compare = subparsers.add_parser("compare", help="比較兩份 DOCX 的目前版本（可含修訂及批註）")
+    compare.add_argument("old_document", help="版本一 DOCX")
+    compare.add_argument("new_document", help="版本二 DOCX")
     compare.add_argument("-o", "--output", default="output/comparison_report.html", help="輸出 HTML 路徑")
     return parser
 
