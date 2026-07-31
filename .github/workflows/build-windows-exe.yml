@@ -36,10 +36,10 @@ jobs:
 
       - name: Verify source and reports
         run: |
-          python -m compileall -q main.py gui.py generate_mock.py word_review
-          python generate_mock.py --output-dir test-data
-          python main.py extract test-data/contract_tracked.docx --output test-output/tracked.html
-          python main.py compare test-data/contract_before.docx test-data/contract_after.docx --output test-output/compare.html
+          python -X utf8 -m compileall -q main.py gui.py generate_mock.py word_review
+          python -X utf8 generate_mock.py --output-dir test-data
+          python -X utf8 main.py extract test-data/contract_tracked.docx --output test-output/tracked.html
+          python -X utf8 main.py compare test-data/contract_before.docx test-data/contract_after.docx --output test-output/compare.html
 
       - name: Build executable
         run: pyinstaller --noconfirm --clean WordReviewTool.spec

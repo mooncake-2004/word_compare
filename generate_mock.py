@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from copy import deepcopy
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -201,7 +202,20 @@ def generate_mock(output_dir: Path) -> list[Path]:
     return [tracked, before, after]
 
 
+def _configure_utf8_console() -> None:
+    """避免 Windows CI／舊控制台以 cp1252 輸出中文時崩潰。"""
+
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            try:
+                reconfigure(encoding="utf-8", errors="backslashreplace")
+            except (AttributeError, OSError):
+                pass
+
+
 def main() -> None:
+    _configure_utf8_console()
     parser = argparse.ArgumentParser(description="生成 Word 修訂與對比測試文件")
     parser.add_argument("--output-dir", default="mock_data", help="輸出目錄")
     args = parser.parse_args()

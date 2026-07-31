@@ -11,6 +11,18 @@ from word_review.html_report import generate_html
 from word_review.single_extractor import extract_tracked_document
 
 
+def _configure_utf8_console() -> None:
+    """避免 Windows CI／舊控制台以 cp1252 輸出中文時崩潰。"""
+
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            try:
+                reconfigure(encoding="utf-8", errors="backslashreplace")
+            except (AttributeError, OSError):
+                pass
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="離線分析 Word 修訂、批註及段落差異")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -27,6 +39,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    _configure_utf8_console()
     args = build_parser().parse_args()
     try:
         if args.command == "extract":
