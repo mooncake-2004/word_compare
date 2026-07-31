@@ -13,6 +13,10 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    env:
+      # 強制 Python 使用 UTF-8，避免 Windows runner 的 cp1252 無法輸出中文。
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: "utf-8"
     permissions:
       contents: read
 
