@@ -6,19 +6,23 @@ import html
 import json
 from pathlib import Path
 
+from .i18n import get_translations
 from .models import AnalysisReport
 
 
-def generate_html(report: AnalysisReport, output_path: str | Path) -> Path:
+def generate_html(report: AnalysisReport, output_path: str | Path, lang: str = "zh") -> Path:
     """將分析結果寫成內嵌 CSS、JavaScript 及資料的 HTML。"""
 
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
     # 防止文件內容中的結束 script 標記跳出 JSON 腳本區塊。
     data_json = json.dumps(report.to_dict(), ensure_ascii=False).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+    translations = get_translations(lang)["html"]
+    i18n_json = json.dumps(translations, ensure_ascii=False).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+    html_lang = "zh-Hant" if lang == "zh" else "en"
     safe_title = html.escape(report.title, quote=True)
     document = f"""<!doctype html>
-<html lang="zh-Hant">
+<html lang="{html_lang}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -51,67 +55,70 @@ h1{{font-size:20px;margin:0 0 5px}} .summary{{color:var(--muted);font-size:13px}
 </style>
 </head>
 <body>
-<header><div><h1>{safe_title}</h1><div id="summary" class="summary"></div></div><div class="summary">本地離線報告</div></header>
+<header><div><h1>{safe_title}</h1><div id="summary" class="summary"></div></div><div class="summary">{translations['header.offline']}</div></header>
 <main class="layout">
-<section class="sidebar"><div class="toolbar"><div id="filters" class="filters"></div><input id="search" type="search" placeholder="搜尋作者、日期或內容"></div><div id="items"></div></section>
-<section id="preview" class="preview"><div class="preview-nav"><button id="previous" class="nav-button">上一個變更</button><button id="next" class="nav-button">下一個變更</button><button id="toggle-full" class="nav-button">展開整份文件</button><span id="position" class="summary"></span></div><div class="hint">像 Word「尋找」一樣逐項跳轉；可展開整份文件查看所有變化。</div><div id="detail"></div><div id="paragraphs"></div></section>
+<section class="sidebar"><div class="toolbar"><div id="filters" class="filters"></div><input id="search" type="search" placeholder="{translations['search.placeholder']}"></div><div id="items"></div></section>
+<section id="preview" class="preview"><div class="preview-nav"><button id="previous" class="nav-button">{translations['nav.previous']}</button><button id="next" class="nav-button">{translations['nav.next']}</button><button id="toggle-full" class="nav-button">{translations['nav.expand']}</button><span id="position" class="summary"></span></div><div class="hint">{translations['hint.jump']}</div><div id="detail"></div><div id="paragraphs"></div></section>
 </main>
 <script id="report-data" type="application/json">{data_json}</script>
 <script>
+const I18N={i18n_json};
+const listSeparator={json.dumps("、" if lang == "zh" else ", ")};
+const tr=(key,values={{}})=>String(I18N[key]??key).replace(/\\{{(\\w+)\\}}/g,(_,name)=>String(values[name]??''));
 const report=JSON.parse(document.getElementById('report-data').textContent);
 const escapeHtml=value=>String(value??'').replace(/[&<>\"']/g,ch=>({{'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}}[ch]));
-const labels={{insert:'新增',delete:'刪除',comment:'批註',modify:'修改'}};
+const labels={{insert:tr('badge.insert'),delete:tr('badge.delete'),comment:tr('badge.comment'),modify:tr('badge.modify')}};
 let selected=null,currentFilter='all',fullDocument=false;
 function records(){{
- if(report.mode==='compare') return report.differences.map(d=>({{...d,type:d.diff_type,id:d.diff_id,index:d.context_index,author:[...(d.old_authors||[]),...(d.new_authors||[])].join('、'),date:'',snippet:d.new_text||d.old_text}}));
+ if(report.mode==='compare') return report.differences.map(d=>({{...d,type:d.diff_type,id:d.diff_id,index:d.context_index,author:[...(d.old_authors||[]),...(d.new_authors||[])].join(listSeparator),date:'',snippet:d.new_text||d.old_text}}));
  return [...report.revisions.map(r=>({{...r,type:r.revision_type,id:r.location_id,index:r.paragraph_index,snippet:r.after_text||r.before_text}})),...report.comments.map(c=>({{...c,type:'comment',id:c.location_id,index:c.start_paragraph,snippet:c.content}}))];
 }}
 const allRecords=records();
 function renderFilters(){{
  const types=[...new Set(allRecords.map(x=>x.type))];
- document.getElementById('filters').innerHTML=[['all','全部'],...types.map(t=>[t,labels[t]])].map(([key,label])=>`<button class="filter ${{key===currentFilter?'active':''}}" data-filter="${{key}}">${{label}}</button>`).join('');
+ document.getElementById('filters').innerHTML=[['all',tr('filter.all')],...types.map(t=>[t,labels[t]])].map(([key,label])=>`<button class="filter ${{key===currentFilter?'active':''}}" data-filter="${{key}}">${{label}}</button>`).join('');
  document.querySelectorAll('.filter').forEach(button=>button.onclick=()=>{{currentFilter=button.dataset.filter;renderFilters();renderItems();}});
 }}
 function searchable(item){{return [item.author,item.date,item.snippet,item.before_text,item.after_text,item.quoted_text,item.old_text,item.new_text,item.old_authors,item.new_authors].join(' ').toLowerCase()}}
 function renderItems(){{
  const query=document.getElementById('search').value.trim().toLowerCase();
  const shown=allRecords.filter(x=>(currentFilter==='all'||x.type===currentFilter)&&(!query||searchable(x).includes(query)));
- document.getElementById('items').innerHTML=shown.length?shown.map(item=>`<button class="item ${{selected===item.id?'active':''}}" data-id="${{escapeHtml(item.id)}}"><span class="item-head"><span class="badge ${{item.type}}">${{labels[item.type]}}</span><span class="meta">${{escapeHtml(item.author||'')}}</span></span><span class="snippet">${{escapeHtml(item.snippet||'（無文字）')}}</span></button>`).join(''):'<div class="empty">沒有符合條件的項目</div>';
+ document.getElementById('items').innerHTML=shown.length?shown.map(item=>`<button class="item ${{selected===item.id?'active':''}}" data-id="${{escapeHtml(item.id)}}"><span class="item-head"><span class="badge ${{item.type}}">${{labels[item.type]}}</span><span class="meta">${{escapeHtml(item.author||'')}}</span></span><span class="snippet">${{escapeHtml(item.snippet||tr('empty.no_text'))}}</span></button>`).join(''):`<div class="empty">${{tr('empty.no_items')}}</div>`;
  document.querySelectorAll('.item').forEach(button=>button.onclick=()=>selectRecord(button.dataset.id));
 }}
 function inlineSide(parts,side){{return (parts||[]).filter(p=>p.type==='equal'||p.type===side).map(p=>p.type==='insert'?`<ins>${{escapeHtml(p.text)}}</ins>`:p.type==='delete'?`<del>${{escapeHtml(p.text)}}</del>`:escapeHtml(p.text)).join('')}}
-function authors(values){{return (values&&values.length)?escapeHtml(values.join('、')):'未記錄'}}
+function authors(values){{return (values&&values.length)?escapeHtml(values.join(listSeparator)):tr('author.unrecorded')}}
 function compareCell(row,side){{
  const text=row[`${{side}}_text`],index=row[`${{side}}_index`],people=row[`${{side}}_authors`];
- let content=escapeHtml(text||'（此版本無對應段落）');
+ let content=escapeHtml(text||tr('paragraph.no_match'));
  if(row.diff_type==='modify') content=inlineSide(row.inline_changes,side==='old'?'delete':'insert');
  else if(row.diff_type==='delete'&&side==='old') content=`<del>${{escapeHtml(text)}}</del>`;
  else if(row.diff_type==='insert'&&side==='new') content=`<ins>${{escapeHtml(text)}}</ins>`;
- return `<div class="version-cell"><div class="cell-meta">${{index===null?'—':`第 ${{index+1}} 段`}} · 修訂人：${{authors(people)}}</div>${{content}}</div>`;
+ return `<div class="version-cell"><div class="cell-meta">${{index===null?'—':tr('paragraph.number',{{number:index+1}})}} · ${{tr(side==='old'?'detail.old_author':'detail.new_author')}}: ${{authors(people)}}</div>${{content}}</div>`;
 }}
 function renderCompare(index){{
  const rows=report.comparison_rows||[];const start=fullDocument?0:Math.max(0,index-3),end=fullDocument?rows.length:Math.min(rows.length,index+4);
- const header=`<div class="compare-header"><div>修改前：${{escapeHtml(report.metadata.old_name||'版本一')}}</div><div>修改後：${{escapeHtml(report.metadata.new_name||'版本二')}}</div></div>`;
+ const header=`<div class="compare-header"><div>${{tr('compare.before',{{value:escapeHtml(report.metadata.old_name||tr('compare.version_one'))}})}}</div><div>${{tr('compare.after',{{value:escapeHtml(report.metadata.new_name||tr('compare.version_two'))}})}}</div></div>`;
  const body=rows.slice(start,end).map(row=>`<article id="comparison-row-${{row.context_index}}" class="compare-row row-${{row.diff_type}} ${{row.context_index===index?'target':''}}">${{compareCell(row,'old')}}${{compareCell(row,'new')}}</article>`).join('');
- document.getElementById('paragraphs').innerHTML=header+(body||'<div class="empty">文件沒有可預覽的段落</div>');
+ document.getElementById('paragraphs').innerHTML=header+(body||`<div class="empty">${{tr('empty.no_preview')}}</div>`);
 }}
 function markText(text,needle,kind){{
- if(!needle)return escapeHtml(text||'（空白段落）');const at=text.indexOf(needle);if(at<0)return escapeHtml(text);
+ if(!needle)return escapeHtml(text||tr('paragraph.blank'));const at=text.indexOf(needle);if(at<0)return escapeHtml(text);
  const tag=kind==='delete'?'del':kind==='comment'?'mark':'ins';return escapeHtml(text.slice(0,at))+`<${{tag}}>${{escapeHtml(needle)}}</${{tag}}>`+escapeHtml(text.slice(at+needle.length));
 }}
 function renderExtract(index,item){{
  const start=fullDocument?0:Math.max(0,index-3),end=fullDocument?report.paragraphs.length:Math.min(report.paragraphs.length,index+4);
  document.getElementById('paragraphs').innerHTML=report.paragraphs.slice(start,end).map(p=>{{
   let text=p.current_text,needle='';if(p.index===index&&item){{needle=item.after_text||item.before_text||item.quoted_text||'';if(item.type==='delete')text=p.original_text;}}
-  return `<article id="paragraph-${{p.index}}" class="paragraph ${{p.index===index?'target':''}}"><div class="para-number">第 ${{p.index+1}} 段</div>${{p.index===index?markText(text,needle,item?.type):escapeHtml(text||'（空白段落）')}}</article>`;
+  return `<article id="paragraph-${{p.index}}" class="paragraph ${{p.index===index?'target':''}}"><div class="para-number">${{tr('paragraph.number',{{number:p.index+1}})}}</div>${{p.index===index?markText(text,needle,item?.type):escapeHtml(text||tr('paragraph.blank'))}}</article>`;
  }}).join('');
 }}
 function renderPreview(item){{if(report.mode==='compare')renderCompare(item?.index||0);else renderExtract(item?.index||0,item)}}
 function detailHtml(item){{
- const head=`<h2><span class="badge ${{item.type}}">${{labels[item.type]}}</span> 詳細內容</h2>`;
- if(item.type==='comment')return head+`<div class="detail-row"><span class="label">作者／時間</span>${{escapeHtml(item.author)}}　${{escapeHtml(item.date)}}</div><div class="detail-row"><span class="label">被批註原文</span>${{escapeHtml(item.quoted_text||'（未找到錨定文字）')}}</div><div class="detail-row"><span class="label">批註</span>${{escapeHtml(item.content)}}</div>`;
- if(report.mode==='compare')return head+`<div class="detail-row"><span class="label">版本一修訂人</span>${{authors(item.old_authors)}}</div><div class="detail-row"><span class="label">修改前</span>${{inlineSide(item.inline_changes,'delete')||escapeHtml(item.old_text||'（無）')}}</div><div class="detail-row"><span class="label">版本二修訂人</span>${{authors(item.new_authors)}}</div><div class="detail-row"><span class="label">修改後</span>${{inlineSide(item.inline_changes,'insert')||escapeHtml(item.new_text||'（無）')}}</div>`;
- return head+`<div class="detail-row"><span class="label">作者／時間</span>${{escapeHtml(item.author)}}　${{escapeHtml(item.date)}}</div><div class="detail-row"><span class="label">修改前</span>${{escapeHtml(item.before_text||'（無）')}}</div><div class="detail-row"><span class="label">修改後</span>${{escapeHtml(item.after_text||'（無）')}}</div>`;
+ const head=`<h2><span class="badge ${{item.type}}">${{labels[item.type]}}</span> ${{tr('detail.title')}}</h2>`;
+ if(item.type==='comment')return head+`<div class="detail-row"><span class="label">${{tr('detail.author_time')}}</span>${{escapeHtml(item.author)}}　${{escapeHtml(item.date)}}</div><div class="detail-row"><span class="label">${{tr('detail.quoted_text')}}</span>${{escapeHtml(item.quoted_text||tr('detail.unanchored'))}}</div><div class="detail-row"><span class="label">${{tr('detail.comment')}}</span>${{escapeHtml(item.content)}}</div>`;
+ if(report.mode==='compare')return head+`<div class="detail-row"><span class="label">${{tr('detail.old_author')}}</span>${{authors(item.old_authors)}}</div><div class="detail-row"><span class="label">${{tr('detail.before')}}</span>${{inlineSide(item.inline_changes,'delete')||escapeHtml(item.old_text||tr('detail.none'))}}</div><div class="detail-row"><span class="label">${{tr('detail.new_author')}}</span>${{authors(item.new_authors)}}</div><div class="detail-row"><span class="label">${{tr('detail.after')}}</span>${{inlineSide(item.inline_changes,'insert')||escapeHtml(item.new_text||tr('detail.none'))}}</div>`;
+ return head+`<div class="detail-row"><span class="label">${{tr('detail.author_time')}}</span>${{escapeHtml(item.author)}}　${{escapeHtml(item.date)}}</div><div class="detail-row"><span class="label">${{tr('detail.before')}}</span>${{escapeHtml(item.before_text||tr('detail.none'))}}</div><div class="detail-row"><span class="label">${{tr('detail.after')}}</span>${{escapeHtml(item.after_text||tr('detail.none'))}}</div>`;
 }}
 function selectRecord(id){{
  const item=allRecords.find(x=>x.id===id);if(!item)return;selected=id;renderItems();document.getElementById('detail').innerHTML=`<div class="detail">${{detailHtml(item)}}</div>`;renderPreview(item);
@@ -120,9 +127,9 @@ function selectRecord(id){{
 }}
 function move(delta){{if(!allRecords.length)return;let at=allRecords.findIndex(x=>x.id===selected);at=(at+delta+allRecords.length)%allRecords.length;selectRecord(allRecords[at].id)}}
 document.getElementById('previous').onclick=()=>move(-1);document.getElementById('next').onclick=()=>move(1);
-document.getElementById('toggle-full').onclick=()=>{{fullDocument=!fullDocument;document.getElementById('toggle-full').textContent=fullDocument?'只看附近段落':'展開整份文件';const item=allRecords.find(x=>x.id===selected);renderPreview(item);if(item){{const id=report.mode==='compare'?`comparison-row-${{item.index}}`:`paragraph-${{item.index}}`;requestAnimationFrame(()=>document.getElementById(id)?.scrollIntoView({{block:'center'}}));}}}};
+document.getElementById('toggle-full').onclick=()=>{{fullDocument=!fullDocument;document.getElementById('toggle-full').textContent=fullDocument?tr('nav.nearby'):tr('nav.expand');const item=allRecords.find(x=>x.id===selected);renderPreview(item);if(item){{const id=report.mode==='compare'?`comparison-row-${{item.index}}`:`paragraph-${{item.index}}`;requestAnimationFrame(()=>document.getElementById(id)?.scrollIntoView({{block:'center'}}));}}}};
 document.getElementById('search').addEventListener('input',renderItems);
-document.getElementById('summary').textContent=report.mode==='compare'?`${{allRecords.length}} 項版本差異（只比較兩份文件目前內容）`:`${{report.revisions.length}} 項修訂，${{report.comments.length}} 條批註`;
+document.getElementById('summary').textContent=report.mode==='compare'?tr('summary.compare',{{count:allRecords.length}}):tr('summary.extract',{{revisions:report.revisions.length,comments:report.comments.length}});
 renderFilters();renderItems();if(allRecords.length)selectRecord(allRecords[0].id);else renderPreview(null);
 </script>
 </body>
