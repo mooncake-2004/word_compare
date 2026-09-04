@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import threading
 import webbrowser
@@ -20,6 +21,15 @@ class WordReviewApp:
 
     def __init__(self, root: Tk) -> None:
         self.root = root
+        self._config_path = Path.home() / ".word_compare_config.json"
+        language = "zh"
+        try:
+            config = json.loads(self._config_path.read_text(encoding="utf-8"))
+            if config.get("language") in {"zh", "en"}:
+                language = config["language"]
+        except (OSError, json.JSONDecodeError, AttributeError):
+            pass
+        set_language(language)
         self.root.title(t("gui.title"))
         self.root.geometry("780x540")
         self.root.minsize(680, 480)
@@ -31,11 +41,13 @@ class WordReviewApp:
         self.output_dir = StringVar(value=str(Path.home() / "WordReviewReports"))
         self.open_after = BooleanVar(value=True)
         self.status = StringVar(value=t("msg.initial"))
+        self.language = StringVar(value="繁體中文" if language == "zh" else "English")
         self._file_labels = []
         self._browse_buttons = []
 
         self._build_ui()
         self._switch_mode()
+        self.retranslate()
 
     def _build_ui(self) -> None:
         outer = ttk.Frame(self.root, padding=20)
@@ -45,7 +57,6 @@ class WordReviewApp:
         header.pack(fill="x")
         self._lbl_title = ttk.Label(header, text=t("gui.title"), font=("Microsoft JhengHei UI", 18, "bold"))
         self._lbl_title.pack(side="left")
-        self.language = StringVar(value="繁體中文" if get_language() == "zh" else "English")
         self._language_box = ttk.Combobox(header, textvariable=self.language, values=["繁體中文", "English"], state="readonly", width=12)
         self._language_box.pack(side="right")
         self._language_box.bind("<<ComboboxSelected>>", self._change_language)
@@ -185,7 +196,12 @@ class WordReviewApp:
 
     def _change_language(self, event):
         initial = self.status.get() == t("msg.initial")
-        set_language("zh" if self.language.get() == "繁體中文" else "en")
+        language = "zh" if self.language.get() == "繁體中文" else "en"
+        set_language(language)
+        try:
+            self._config_path.write_text(json.dumps({"language": language}), encoding="utf-8")
+        except OSError:
+            pass
         self.retranslate()
         if initial:
             self.status.set(t("msg.initial"))
