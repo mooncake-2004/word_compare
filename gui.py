@@ -9,7 +9,6 @@ from pathlib import Path
 from tkinter import BooleanVar, StringVar, Tk, filedialog, messagebox
 from tkinter import ttk
 
-from generate_mock import generate_mock
 from word_review.document_compare import compare_documents
 from word_review.html_report import generate_html
 from word_review.i18n import get_language, set_language, t
@@ -17,7 +16,7 @@ from word_review.single_extractor import extract_tracked_document
 
 
 class WordReviewApp:
-    """提供檔案選擇、分析、Mock 生成及報告開啟功能。"""
+    """提供檔案選擇、分析及報告開啟功能。"""
 
     def __init__(self, root: Tk) -> None:
         self.root = root
@@ -86,10 +85,8 @@ class WordReviewApp:
         actions.pack(fill="x", pady=18)
         self.run_button = ttk.Button(actions, text=t("gui.btn.analyze"), command=self._start_analysis)
         self.run_button.pack(side="left")
-        self._btn_mock = ttk.Button(actions, text=t("gui.btn.mock"), command=self._start_mock)
-        self._btn_mock.pack(side="left", padx=10)
         self._btn_open_folder = ttk.Button(actions, text=t("gui.btn.open_folder"), command=self._open_output_dir)
-        self._btn_open_folder.pack(side="left")
+        self._btn_open_folder.pack(side="left", padx=10)
 
         ttk.Separator(outer).pack(fill="x", pady=(2, 12))
         self._lbl_status = ttk.Label(outer, textvariable=self.status, wraplength=720, foreground="#344054")
@@ -161,16 +158,6 @@ class WordReviewApp:
             output = output_dir / f"{old_source.stem}_{t('gui.filename.compare').strip('_')}_{new_source.stem}_{t('gui.filename.compare_suffix')}.html"
         return generate_html(report, output, get_language())
 
-    def _start_mock(self) -> None:
-        selected = filedialog.askdirectory(title=t("gui.dialog.choose_mock_output"))
-        if selected:
-            self._run_in_background(lambda: self._generate_mock(Path(selected)))
-
-    @staticmethod
-    def _generate_mock(output_dir: Path) -> Path:
-        generate_mock(output_dir)
-        return output_dir
-
     def _run_in_background(self, operation) -> None:  # type: ignore[no-untyped-def]
         self.run_button.configure(state="disabled")
         self.status.set(t("msg.processing"))
@@ -221,7 +208,6 @@ class WordReviewApp:
         self._btn_choose_folder.configure(text=t("gui.btn.choose_folder"))
         self._check_open_after.configure(text=t("gui.open_after"))
         self.run_button.configure(text=t("gui.btn.analyze"))
-        self._btn_mock.configure(text=t("gui.btn.mock"))
         self._btn_open_folder.configure(text=t("gui.btn.open_folder"))
 
     def _open_output_dir(self) -> None:

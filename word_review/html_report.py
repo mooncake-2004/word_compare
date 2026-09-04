@@ -6,7 +6,7 @@ import html
 import json
 from pathlib import Path
 
-from .i18n import get_translations
+from .i18n import get_translations, t
 from .models import AnalysisReport
 
 
@@ -20,7 +20,18 @@ def generate_html(report: AnalysisReport, output_path: str | Path, lang: str = "
     translations = get_translations(lang)["html"]
     i18n_json = json.dumps(translations, ensure_ascii=False).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
     html_lang = "zh-Hant" if lang == "zh" else "en"
-    safe_title = html.escape(report.title, quote=True)
+    if report.mode == "compare":
+        title = t(
+            "html.report_title.compare",
+            old=Path(report.metadata["old_source"]).name,
+            new=Path(report.metadata["new_source"]).name,
+        )
+    else:
+        title = t(
+            "html.report_title.extract",
+            file=Path(report.metadata["source"]).name,
+        )
+    safe_title = html.escape(title, quote=True)
     document = f"""<!doctype html>
 <html lang="{html_lang}">
 <head>
